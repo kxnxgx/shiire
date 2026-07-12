@@ -35,6 +35,30 @@ def normalize_store_name(name):
     return name
 
 def calculate_order(df_combined, brand, logic_type, wholesale_ratio, inventory_file=None, partner_inventory_file=None):
+    df_combined = df_combined.copy()
+    
+    # 廃盤商品の現行商品へのマッピング定義
+    SKU_REPLACEMENT_MAP = {
+        'SNF00952X': 'SNF009035X',  # 横顔 ヒグマ -> ヒグマ
+        'SNF00953X': 'SNF009051X',  # 横顔 キタキツネ -> キタキツネ
+        'SNF00954X': 'SNF009036X',  # 横顔 エゾシカ -> エゾシカ
+        'SNF00955X': 'SNF009037X',  # 横顔 エゾタヌキ -> エゾクロテン
+        'SNF013001X': 'SNF013002X'  # キバナ -> フウロ
+    }
+    
+    PRODUCT_NAME_MAP = {
+        'SNF009035X': 'シレトコ野帳/ヒグマ',
+        'SNF009051X': 'シレトコ野帳/キタキツネ',
+        'SNF009036X': 'シレトコ野帳/エゾシカ',
+        'SNF009037X': 'シレトコ野帳/エゾクロテン',
+        'SNF013002X': '知床かばん（フウロ）'
+    }
+    
+    # 全体データの商品コードと商品名を置換
+    df_combined['3rd Item No.'] = df_combined['3rd Item No.'].replace(SKU_REPLACEMENT_MAP)
+    for sku, new_name in PRODUCT_NAME_MAP.items():
+        df_combined.loc[df_combined['3rd Item No.'] == sku, '商品名'] = new_name
+
     # 生データから指定ブランドを抽出
     df = df_combined[df_combined['表記部門名1'] == brand].copy()
     
@@ -128,6 +152,9 @@ def calculate_order(df_combined, brand, logic_type, wholesale_ratio, inventory_f
             df_inv_sub = df_inv[['拠点名', '商品コード', '現在数量']].rename(
                 columns={'拠点名': '店舗名称', '商品コード': '3rd Item No.'}
             )
+            # 在庫データの商品コードを置換し、重複を合算
+            df_inv_sub['3rd Item No.'] = df_inv_sub['3rd Item No.'].replace(SKU_REPLACEMENT_MAP)
+            df_inv_sub = df_inv_sub.groupby(['店舗名称', '3rd Item No.'])['現在数量'].sum().reset_index()
             
             pivot = pd.merge(pivot, df_inv_sub, on=['店舗名称', '3rd Item No.'], how='left')
             pivot['現在数量'] = pivot['現在数量'].fillna(0).apply(round_half_up)
