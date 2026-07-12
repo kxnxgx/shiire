@@ -418,6 +418,172 @@ def style_sheet(ws, title, sheet_type='detail'):
                 max_len = cell_len
         ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
 
+def create_presentation_summary_sheet(wb, summary_df, sku_summary_df):
+    ws = wb.create_sheet(title='プレゼンサマリー', index=0)
+    
+    # 基本フォント・スタイル定義
+    font_title = Font(name="BIZ UDPゴシック", size=18, bold=True, color="FFFFFF")
+    font_subtitle = Font(name="BIZ UDPゴシック", size=12, bold=True, color="1B5E20")
+    font_normal = Font(name="BIZ UDPゴシック", size=11)
+    font_kpi_val = Font(name="BIZ UDPゴシック", size=24, bold=True)
+    font_kpi_alert = Font(name="BIZ UDPゴシック", size=24, bold=True, color="C62828")
+    font_kpi_title = Font(name="BIZ UDPゴシック", size=10, color="555555")
+    
+    fill_header = PatternFill(patternType="solid", fgColor="1B5E20")
+    fill_bg = PatternFill(patternType="solid", fgColor="FFFFFF")
+    fill_kpi_bg = PatternFill(patternType="solid", fgColor="F0F4F0")
+    fill_kpi_alert_bg = PatternFill(patternType="solid", fgColor="FFEBEE")
+    fill_table_header = PatternFill(patternType="solid", fgColor="E8F5E9")
+    fill_zebra = PatternFill(patternType="solid", fgColor="F9F9F9")
+    
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                         top=Side(style='thin'), bottom=Side(style='thin'))
+                         
+    # 全体を白で塗りつぶす
+    for r in range(1, 50):
+        for c in range(1, 15):
+            ws.cell(row=r, column=c).fill = fill_bg
+            
+    # タイトル
+    ws.merge_cells('B2:G3')
+    cell = ws.cell(row=2, column=2, value=" 知床オリジナル商品 発注計画 サマリー＆申請ダッシュボード")
+    cell.font = font_title
+    cell.fill = fill_header
+    cell.alignment = Alignment(vertical="center")
+    
+    # KPI計算
+    total_budget = summary_df['発注下代計'].sum() if '発注下代計' in summary_df.columns else 0
+    total_qty = summary_df['発注数'].sum() if '発注数' in summary_df.columns else 0
+    total_missing = sku_summary_df['取引先欠品数'].sum() if '取引先欠品数' in sku_summary_df.columns else 0
+    
+    missing_loss = 0
+    if '取引先欠品数' in sku_summary_df.columns and '税抜単価' in sku_summary_df.columns:
+        missing_rows = sku_summary_df[sku_summary_df['取引先欠品数'] > 0]
+        missing_loss = (missing_rows['税抜単価'] * missing_rows['取引先欠品数']).sum()
+        
+    # KPI 1: 申請予算（下代）
+    ws.merge_cells('B5:C5')
+    ws.cell(row=5, column=2, value="申請予算 (下代計)").font = font_kpi_title
+    ws.merge_cells('B6:C7')
+    c_b6 = ws.cell(row=6, column=2, value=f"¥ {int(total_budget):,}")
+    c_b6.font = font_kpi_val
+    c_b6.alignment = Alignment(horizontal="center", vertical="center")
+    for r in range(5, 8):
+        for c in range(2, 4):
+            ws.cell(row=r, column=c).fill = fill_kpi_bg
+            ws.cell(row=r, column=c).border = thin_border
+            
+    # KPI 2: 確定発注数
+    ws.merge_cells('D5:E5')
+    ws.cell(row=5, column=4, value="確定発注数").font = font_kpi_title
+    ws.merge_cells('D6:E7')
+    c_d6 = ws.cell(row=6, column=4, value=f"{int(total_qty):,} 個")
+    c_d6.font = font_kpi_val
+    c_d6.alignment = Alignment(horizontal="center", vertical="center")
+    for r in range(5, 8):
+        for c in range(4, 6):
+            ws.cell(row=r, column=c).fill = fill_kpi_bg
+            ws.cell(row=r, column=c).border = thin_border
+            
+    # KPI 3: 取引先欠品数 (警告色)
+    ws.merge_cells('F5:G5')
+    ws.cell(row=5, column=6, value="取引先欠品数 (機会損失)").font = font_kpi_title
+    ws.merge_cells('F6:G7')
+    c_f6 = ws.cell(row=6, column=6, value=f"{int(total_missing):,} 個")
+    c_f6.font = font_kpi_alert
+    c_f6.alignment = Alignment(horizontal="center", vertical="center")
+    for r in range(5, 8):
+        for c in range(6, 8):
+            ws.cell(row=r, column=c).fill = fill_kpi_alert_bg
+            ws.cell(row=r, column=c).border = thin_border
+            
+    # 店舗別表
+    ws.cell(row=9, column=2, value="■ 店舗別 発注内訳").font = font_subtitle
+    ws.cell(row=9, column=4, value="※玉川高島屋には小田急町田の売上・在庫を統合済").font = Font(name="BIZ UDPゴシック", size=9, color="C62828")
+    
+    store_cols = ['店舗名称', '目標数', '現在庫数', '発注数', '発注下代計']
+    
+    # ヘッダー
+    for i, col_name in enumerate(store_cols):
+        c_idx = i + 2
+        cell = ws.cell(row=10, column=c_idx, value=col_name)
+        cell.font = Font(name="BIZ UDPゴシック", size=10, bold=True)
+        cell.fill = fill_table_header
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+        
+    row_offset = 11
+    if all(c in summary_df.columns for c in store_cols):
+        for _, row_data in summary_df.iterrows():
+            for i, col_name in enumerate(store_cols):
+                c_idx = i + 2
+                cell = ws.cell(row=row_offset, column=c_idx, value=row_data[col_name])
+                cell.font = font_normal
+                cell.border = thin_border
+                if i > 0:
+                    cell.number_format = "#,##0"
+                if row_offset % 2 == 0:
+                    cell.fill = fill_zebra
+            row_offset += 1
+            
+    # 欠品表
+    row_offset += 2
+    ws.cell(row=row_offset, column=2, value="■ 取引先欠品リスト（機会損失リスク）").font = font_subtitle
+    ws.cell(row=row_offset, column=5, value=f"推定機会損失額(上代): ¥ {int(missing_loss):,}").font = Font(name="BIZ UDPゴシック", size=11, bold=True, color="C62828")
+    row_offset += 1
+    
+    missing_cols = ['商品名', '必要発注数', '取引先欠品数']
+    for i, col_name in enumerate(missing_cols):
+        c_idx = i + 2
+        cell = ws.cell(row=row_offset, column=c_idx, value=col_name)
+        cell.font = Font(name="BIZ UDPゴシック", size=10, bold=True)
+        cell.fill = fill_table_header
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+        
+    row_offset += 1
+    if '取引先欠品数' in sku_summary_df.columns:
+        missing_rows = sku_summary_df[sku_summary_df['取引先欠品数'] > 0]
+        for _, row_data in missing_rows.iterrows():
+            for i, col_name in enumerate(missing_cols):
+                c_idx = i + 2
+                cell = ws.cell(row=row_offset, column=c_idx, value=row_data[col_name])
+                cell.font = font_normal
+                cell.border = thin_border
+                if i > 0:
+                    cell.number_format = "#,##0"
+                if row_offset % 2 == 0:
+                    cell.fill = fill_zebra
+            row_offset += 1
+            
+    # 対策テキスト
+    row_offset += 2
+    ws.cell(row=row_offset, column=2, value="【推奨対策】").font = font_subtitle
+    row_offset += 1
+    ws.cell(row=row_offset, column=2, value="1. 取引先（知床財団）へ欠品アイテム（特にシレトコ野帳）の早期増産・再生産を要請する。").font = font_normal
+    row_offset += 1
+    ws.cell(row=row_offset, column=2, value="2. 欠品カラーの代わりに、在庫のある代替カラーの展開を強化する。").font = font_normal
+    
+    # 算出ロジックの説明
+    row_offset += 2
+    ws.cell(row=row_offset, column=2, value="■ 発注数の算出ロジック").font = font_subtitle
+    row_offset += 1
+    ws.cell(row=row_offset, column=2, value="1. 7ヶ月消化モデル: 過去2年間の同期間（7月〜翌年1月）の売上実績を平均してベース目標数を算出。").font = font_normal
+    row_offset += 1
+    ws.cell(row=row_offset, column=2, value="2. 安全バッファ: 定番の売れ筋商品（野帳・エコバッグ）については、機会損失を防ぐため目標数に1.2倍のバッファを適用。").font = font_normal
+    row_offset += 1
+    ws.cell(row=row_offset, column=2, value="3. 在庫引き当てとキャップ: 目標数から「店舗現在庫」を引き、さらに「取引先在庫数」を上限（キャップ）として最終発注数を確定。").font = font_normal
+    
+    # 列幅調整
+    ws.column_dimensions['A'].width = 3
+    ws.column_dimensions['B'].width = 45
+    ws.column_dimensions['C'].width = 15
+    ws.column_dimensions['D'].width = 15
+    ws.column_dimensions['E'].width = 15
+    ws.column_dimensions['F'].width = 15
+    ws.column_dimensions['G'].width = 15
+    ws.column_dimensions['H'].width = 15
+
 def main():
     parser = argparse.ArgumentParser(description='過去実績と在庫から発注計画を算出する汎用ツール')
     parser.add_argument('--input', type=str, default='シレトコ分析.xlsx', help='入力となる生データのExcelファイル（今年度実績）')
@@ -524,6 +690,9 @@ def main():
         style_sheet(ws_sum, f"【{args.brand}】店舗別発注まとめ（7ヶ月消化ベース: {logic_jp}）", sheet_type='store_summary')
         style_sheet(ws_sku, f"【{args.brand}】商品別発注まとめ（7ヶ月消化＋売れ筋1.2倍）", sheet_type='sku_summary')
         style_sheet(ws_det, f"【{args.brand}】発注詳細データ（7ヶ月消化ベース: {logic_jp}）", sheet_type='detail')
+        
+        # プレゼンサマリーシートの追加
+        create_presentation_summary_sheet(wb, summary_df, sku_summary_df)
         
         wb.save(output_filename)
         print(f"成功: {output_filename} を出力しました！")
