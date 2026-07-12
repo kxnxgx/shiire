@@ -29,12 +29,9 @@ def normalize_store_name(name):
     # 心斎橋パルコ / 大丸心斎橋
     if '大丸心斎橋' in name or '心斎橋パルコ' in name:
         return 'FJALLRAVEN by 3NITY 大丸心斎橋'
-    # 玉川高島屋
-    if '玉川高島屋' in name:
+    # 玉川高島屋 / 小田急町田 (閉店につき実績・在庫を玉川に統合)
+    if '玉川高島屋' in name or '小田急町田' in name:
         return 'FJALLRAVEN by 3NITY玉川高島屋S・C'
-    # 小田急町田
-    if '小田急町田' in name:
-        return 'FJALLRAVEN by 3NITY 小田急町田'
     return name
 
 def calculate_order(df_combined, brand, logic_type, wholesale_ratio, inventory_file=None, partner_inventory_file=None):
@@ -166,8 +163,7 @@ def calculate_order(df_combined, brand, logic_type, wholesale_ratio, inventory_f
         'FJALLRAVEN by 3NITY TOKYO': 15,
         'FJALLRAVEN by 3NITY ルクア大阪': 3,
         'FJALLRAVEN by 3NITY 大丸心斎橋': 4,
-        'FJALLRAVEN by 3NITY玉川高島屋S・C': 3,
-        'FJALLRAVEN by 3NITY 小田急町田': 2,
+        'FJALLRAVEN by 3NITY玉川高島屋S・C': 5, # 小田急町田分(2)を加算
     }
 
     new_rows = []

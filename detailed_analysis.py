@@ -48,10 +48,8 @@ try:
             return 'FJALLRAVEN by 3NITY ルクア大阪'
         if '大丸心斎橋' in name or '心斎橋パルコ' in name:
             return 'FJALLRAVEN by 3NITY 大丸心斎橋'
-        if '玉川高島屋' in name:
+        if '玉川高島屋' in name or '小田急町田' in name:
             return 'FJALLRAVEN by 3NITY玉川高島屋S・C'
-        if '小田急町田' in name:
-            return 'FJALLRAVEN by 3NITY 小田急町田'
         return name
         
     df_last_s['店舗名称'] = df_last_s['店舗名称'].apply(normalize_store_name)
