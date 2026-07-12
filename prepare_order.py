@@ -608,6 +608,60 @@ def create_presentation_summary_sheet(wb, summary_df, sku_summary_df):
     row_offset += 1
     ws.cell(row=row_offset, column=2, value="3. 在庫引き当てとキャップ: 目標数から「店舗現在庫」を引き、さらに「取引先在庫数」を上限（キャップ）として最終発注数を確定。").font = font_normal
     
+    # 定番商品への1.2倍バッファ適用内訳
+    row_offset += 2
+    ws.cell(row=row_offset, column=2, value="■ 定番商品への1.2倍バッファ適用内訳").font = font_subtitle
+    row_offset += 1
+    
+    buffer_headers = ['商品名', '昨期7ヶ月実績', '今期7ヶ月実績', '2年単純平均', 'バッファ後目標数', 'バッファ上乗せ数']
+    for i, col_name in enumerate(buffer_headers):
+        c_idx = i + 2
+        cell = ws.cell(row=row_offset, column=c_idx, value=col_name)
+        cell.font = Font(name="BIZ UDPゴシック", size=10, bold=True)
+        cell.fill = fill_table_header
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+        
+    row_offset += 1
+    if not sku_summary_df.empty:
+        df_buf = sku_summary_df[
+            sku_summary_df['商品コード'].astype(str).str.startswith('SNF009') | 
+            sku_summary_df['商品コード'].astype(str).str.startswith('SNF005') | 
+            sku_summary_df['商品コード'].astype(str).str.startswith('SNF011')
+        ].copy()
+        
+        for _, row_data in df_buf.iterrows():
+            last_val = row_data['昨年度実績'] if '昨年度実績' in row_data else 0
+            this_val = row_data['今年度実績'] if '今年度実績' in row_data else 0
+            target_val = row_data['目標数'] if '目標数' in row_data else 0
+            
+            avg_val = (last_val + this_val) / 2
+            buffer_diff = target_val - avg_val
+            
+            row_vals = [
+                row_data['商品名'],
+                last_val,
+                this_val,
+                avg_val,
+                target_val,
+                buffer_diff
+            ]
+            
+            for i, val in enumerate(row_vals):
+                c_idx = i + 2
+                cell = ws.cell(row=row_offset, column=c_idx, value=val)
+                cell.font = font_normal
+                cell.border = thin_border
+                if i > 0:
+                    if isinstance(val, float):
+                        cell.number_format = "#,##0.0"
+                    else:
+                        cell.number_format = "#,##0"
+                    cell.alignment = Alignment(horizontal="right")
+                if row_offset % 2 == 0:
+                    cell.fill = fill_zebra
+            row_offset += 1
+            
     # 列幅調整
     ws.column_dimensions['A'].width = 3
     ws.column_dimensions['B'].width = 45
