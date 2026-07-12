@@ -69,9 +69,16 @@ def calculate_order(df_combined, brand, logic_type, wholesale_ratio, inventory_f
     # 昨年度と今年度のフラグを作成
     def get_fiscal_year(y, m):
         if m >= 7:
-            return f"{int(y)}07-{int(y)+1}06"
+            fy = int(y)
         else:
-            return f"{int(y)-1}07-{int(y)}06"
+            fy = int(y) - 1
+            
+        if fy == 2024:
+            return '24年7月～25年1月(7ヶ月実績)'
+        elif fy == 2025:
+            return '25年7月～26年1月(7ヶ月実績)'
+        else:
+            return f"{fy}年度(7ヶ月)"
             
     df['FiscalYear'] = df.apply(lambda row: get_fiscal_year(row['year'], row['month']), axis=1)
     
@@ -110,8 +117,8 @@ def calculate_order(df_combined, brand, logic_type, wholesale_ratio, inventory_f
     pivot = pivot.reset_index()
     pivot['税抜単価'] = pivot['3rd Item No.'].map(sku_price_map)
     
-    col_last_year = '202407-202506'
-    col_this_year = '202507-202606'
+    col_last_year = '24年7月～25年1月(7ヶ月実績)'
+    col_this_year = '25年7月～26年1月(7ヶ月実績)'
     
     if col_last_year not in pivot.columns:
         pivot[col_last_year] = 0
