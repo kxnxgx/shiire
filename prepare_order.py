@@ -607,6 +607,8 @@ def create_presentation_summary_sheet(wb, summary_df, sku_summary_df):
     ws.cell(row=row_offset, column=2, value="2. 安全バッファ: 定番の売れ筋商品（野帳・エコバッグ）については、機会損失を防ぐため目標数に1.2倍のバッファを適用。").font = font_normal
     row_offset += 1
     ws.cell(row=row_offset, column=2, value="3. 在庫引き当てとキャップ: 目標数から「店舗現在庫」を引き、さらに「取引先在庫数」を上限（キャップ）として最終発注数を確定。").font = font_normal
+    row_offset += 1
+    ws.cell(row=row_offset, column=2, value="4. 新商品の目標配分: 実績のない新商品（ステッカー5種・缶バッジ5種）については、各店舗への初回配分数を設定して目標数（計300点）に加算。").font = font_normal
     
     # 定番商品への1.2倍バッファ適用内訳
     row_offset += 2
